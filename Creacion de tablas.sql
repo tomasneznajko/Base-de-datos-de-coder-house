@@ -1,5 +1,5 @@
-CREATE SCHEMA IF NOT EXISTS estadisticas;
-USE estadisticas;
+CREATE SCHEMA IF NOT EXISTS estadisticas_neznajko;
+USE estadisticas_neznajko;
 
 CREATE TABLE IF NOT EXISTS competencia(
 	id_competencia INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS partido(
 	id_partido INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     id_tiempo INT NOT NULL,
     contrincante VARCHAR(30) NOT NULL,
-    porteria_invicta BOOLEAN NOT NULL,
+    porteria_invicta BIT NOT NULL,
     id_competencia INT NOT NULL,
 	FOREIGN KEY(id_tiempo) REFERENCES tiempo(id_tiempo),
 	FOREIGN KEY(id_competencia) REFERENCES competencia(id_competencia)
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS logros_partido(
 	id_logros_partido INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     goles INT NOT NULL,
     asistencias INT NOT NULL,
-    figura BOOLEAN NOT NULL
+    figura BIT NOT NULL
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS fin_partido(
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS partido_jugador(
 	id_privado INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     id_partido INT NOT NULL,
     id_jugador INT NOT NULL,
-    titular BOOLEAN NOT NULL,
+    titular BIT NOT NULL,
     id_fin_partido INT NOT NULL,
     id_logros_partido INT,
     FOREIGN KEY(id_partido) REFERENCES partido(id_partido),
@@ -108,20 +108,32 @@ CREATE TABLE IF NOT EXISTS entrenamiento_jugador(
     FOREIGN KEY(id_jugador) REFERENCES jugador(id_jugador)
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS telefonos(
-	id_telefono INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
-    telefono1 INT NOT NULL,
-    telefono2 INT
+CREATE TABLE IF NOT EXISTS puesto(
+	id_puesto INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    puesto VARCHAR(30) NOT NULL
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS empleado(
 	id_empleado INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     id_nombre INT NOT NULL,
-    id_telefono INT,
-    puesto VARCHAR(30) NOT NULL,
+    id_puesto INT NOT NULL,
     fecha_nacimiento DATE NOT NULL,
     FOREIGN KEY(id_nombre) REFERENCES nombre(id_nombre),
-    FOREIGN KEY(id_telefono) REFERENCES telefonos(id_telefono)
+    FOREIGN KEY(id_puesto) REFERENCES puesto(id_puesto)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS email_empleado(
+	id_privado INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    id_empleado INT NOT NULL,
+    email VARCHAR(60) NOT NULL,
+    FOREIGN KEY(id_empleado) REFERENCES empleado(id_empleado)
+)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS telefono_empleado(
+	id_privado INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    id_empleado INT NOT NULL,
+    telefono INT UNSIGNED NOT NULL,
+    FOREIGN KEY(id_empleado) REFERENCES empleado(id_empleado)
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS empleado_jugador(
@@ -133,9 +145,3 @@ CREATE TABLE IF NOT EXISTS empleado_jugador(
     FOREIGN KEY(id_empleado) REFERENCES empleado(id_empleado),
     FOREIGN KEY(id_jugador) REFERENCES jugador(id_jugador)
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
-
-
-
-
