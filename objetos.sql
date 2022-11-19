@@ -165,8 +165,9 @@ FROM estadisticas_neznajko.jugadores_mas_calificados;
 
 -- Cantidad de goles y asistencias promedio por jugador por partido
 CREATE OR REPLACE VIEW resultados_x_partido AS
-	SELECT  nombre_completo_jugador(j.id_jugador), TRUNCATE(AVG(l.goles),2) AS goles, TRUNCATE(AVG(l.asistencias),2) AS asistencias
+	SELECT  nombre_completo_jugador(j.id_jugador),e.posicion, TRUNCATE(AVG(l.goles),2) AS goles, TRUNCATE(AVG(l.asistencias),2) AS asistencias
 	FROM jugador AS j
+    JOIN estados AS e ON j.id_estado = e.id_estado
     JOIN partido_jugador AS p ON j.id_jugador = p.id_jugador
     JOIN logros_partido AS l ON p.id_logros_partido = l.id_logros_partido
     GROUP BY j.id_jugador
@@ -237,6 +238,10 @@ BEGIN
     
 END$$
 
+-- Ejemplo: 
+call estadisticas_neznajko.sp_ordenar_x_enteros('nombre', 'desc');
+
+
 CREATE PROCEDURE `sp_eliminar_o_agregar_email` (IN id_emp INT, IN mail VARCHAR(60))  -- Elimina email encontrado, pero, si no existe actualmente con esos datos, agrega el mismo mencionad0, si es válida
 BEGIN
 	DECLARE email_nulo VARCHAR(60);
@@ -255,6 +260,9 @@ BEGIN
     -- Ejecutamos clausula para corroborar resultados
 END$$
 DELIMITER ;
+
+-- Ejemplo: 
+call estadisticas_neznajko.sp_eliminar_o_agregar_email(4, 'nuevoMail@anuloMufa');
 
 
 -- FUNCIONES
@@ -285,11 +293,11 @@ BEGIN
     SET nombre = (SELECT n.nombre 
 		FROM nombre AS n
         JOIN jugador AS j ON n.id_nombre = j.id_nombre
-        WHERE j.id_jugador = id);
+        WHERE j.id_jugador = id LIMIT 1);
     SET apellido = (SELECT n.apellido 
 		FROM nombre AS n
         JOIN jugador AS j ON n.id_nombre = j.id_nombre
-        WHERE j.id_jugador = id);
+        WHERE j.id_jugador = id LIMIT 1);
     SET nombre_completo = nombre_completo(nombre,apellido);
     RETURN nombre_completo;
 
@@ -308,11 +316,11 @@ BEGIN
     SET nombre = (SELECT n.nombre 
 		FROM nombre AS n
         JOIN empleado AS e ON n.id_nombre = e.id_nombre
-        WHERE e.id_empleado = id);
+        WHERE e.id_empleado = id LIMIT 1);
     SET apellido = (SELECT n.apellido 
 		FROM nombre AS n
         JOIN empleado AS e ON n.id_nombre = e.id_nombre
-        WHERE e.id_empleado = id);
+        WHERE e.id_empleado = id LIMIT 1);
     SET nombre_completo = nombre_completo(nombre,apellido);
     RETURN nombre_completo;
 
@@ -334,20 +342,20 @@ BEGIN
 		FROM jugador AS j
         JOIN partido_jugador AS p_j ON j.id_jugador = p_j.id_jugador
         JOIN logros_partido AS l ON l.id_logros_partido = p_j.id_logros_partido
-        WHERE j.id_jugador = id
+        WHERE j.id_jugador = id LIMIT 1
 		);
 	SET goles_entrenamiento = (SELECT SUM(l.goles) 
 		FROM jugador AS j
         JOIN entrenamiento_jugador AS e_j ON j.id_jugador = e_j.id_jugador
         JOIN logros_entrenamiento AS l ON l.id_logros_entrenamiento = e_j.id_logros_entrenamiento
-        WHERE j.id_jugador = id
+        WHERE j.id_jugador = id LIMIT 1
 		);
 	SET partidos_jugados = (SELECT COUNT(id_privado) 
 		FROM partido_jugador 
-        WHERE id_jugador = id);
+        WHERE id_jugador = id LIMIT 1);
 	SET entrenamientos_jugados = (SELECT COUNT(id_privado) 
 		FROM entrenamiento_jugador 
-        WHERE id_jugador = id);
+        WHERE id_jugador = id LIMIT 1);
         
 	SET promedio = (goles_partidos + goles_entrenamiento) / (partidos_jugados + entrenamientos_jugados);
     RETURN promedio;
