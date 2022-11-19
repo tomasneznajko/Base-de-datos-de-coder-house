@@ -1,3 +1,6 @@
+DROP DATABASE IF EXISTS estadisticas_neznajko;
+
+-- Creo Base de datos 
 CREATE SCHEMA IF NOT EXISTS estadisticas_neznajko;
 USE estadisticas_neznajko;
 
@@ -35,9 +38,9 @@ CREATE TABLE IF NOT EXISTS jugador(
     id_estado INT NOT NULL,
     id_estad_jug INT,
     fecha_nacimiento DATE NOT NULL,
-    FOREIGN KEY(id_nombre) REFERENCES nombre(id_nombre),
-    FOREIGN KEY(id_estado) REFERENCES estados(id_estado),
-    FOREIGN KEY(id_estad_jug) REFERENCES estad_jugador(id_estad_jug)
+    FOREIGN KEY(id_nombre) REFERENCES nombre(id_nombre) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY(id_estado) REFERENCES estados(id_estado) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY(id_estad_jug) REFERENCES estad_jugador(id_estad_jug) ON DELETE CASCADE ON UPDATE CASCADE
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS tiempo(
@@ -49,7 +52,7 @@ CREATE TABLE IF NOT EXISTS tiempo(
 CREATE TABLE IF NOT EXISTS entrenamiento(
 	id_entrenamiento INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     id_tiempo INT NOT NULL,
-    FOREIGN KEY(id_tiempo) REFERENCES tiempo(id_tiempo)
+    FOREIGN KEY(id_tiempo) REFERENCES tiempo(id_tiempo) ON DELETE CASCADE ON UPDATE CASCADE
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS partido(
@@ -58,8 +61,8 @@ CREATE TABLE IF NOT EXISTS partido(
     contrincante VARCHAR(30) NOT NULL,
     porteria_invicta BIT NOT NULL,
     id_competencia INT NOT NULL,
-	FOREIGN KEY(id_tiempo) REFERENCES tiempo(id_tiempo),
-	FOREIGN KEY(id_competencia) REFERENCES competencia(id_competencia)
+	FOREIGN KEY(id_tiempo) REFERENCES tiempo(id_tiempo) ON DELETE CASCADE ON UPDATE CASCADE,
+	FOREIGN KEY(id_competencia) REFERENCES competencia(id_competencia) ON DELETE CASCADE ON UPDATE CASCADE
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS logros_partido(
@@ -82,10 +85,10 @@ CREATE TABLE IF NOT EXISTS partido_jugador(
     titular BIT NOT NULL,
     id_fin_partido INT NOT NULL,
     id_logros_partido INT,
-    FOREIGN KEY(id_partido) REFERENCES partido(id_partido),
-    FOREIGN KEY(id_jugador) REFERENCES jugador(id_jugador),
-    FOREIGN KEY(id_fin_partido) REFERENCES fin_partido(id_fin_partido),
-    FOREIGN KEY(id_logros_partido) REFERENCES logros_partido(id_logros_partido)
+    FOREIGN KEY(id_partido) REFERENCES partido(id_partido) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY(id_jugador) REFERENCES jugador(id_jugador) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY(id_fin_partido) REFERENCES fin_partido(id_fin_partido) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY(id_logros_partido) REFERENCES logros_partido(id_logros_partido) ON DELETE CASCADE ON UPDATE CASCADE
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS logros_entrenamiento(
@@ -103,9 +106,9 @@ CREATE TABLE IF NOT EXISTS entrenamiento_jugador(
     calificacion DECIMAL(3,2) NOT NULL,
     realizado TIME NOT NULL,
     id_logros_entrenamiento INT,
-    FOREIGN KEY(id_entrenamiento) REFERENCES entrenamiento(id_entrenamiento),
-    FOREIGN KEY(id_logros_entrenamiento) REFERENCES logros_entrenamiento(id_logros_entrenamiento),
-    FOREIGN KEY(id_jugador) REFERENCES jugador(id_jugador)
+    FOREIGN KEY(id_entrenamiento) REFERENCES entrenamiento(id_entrenamiento) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY(id_logros_entrenamiento) REFERENCES logros_entrenamiento(id_logros_entrenamiento) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY(id_jugador) REFERENCES jugador(id_jugador) ON DELETE CASCADE ON UPDATE CASCADE
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS puesto(
@@ -118,22 +121,22 @@ CREATE TABLE IF NOT EXISTS empleado(
     id_nombre INT NOT NULL,
     id_puesto INT NOT NULL,
     fecha_nacimiento DATE NOT NULL,
-    FOREIGN KEY(id_nombre) REFERENCES nombre(id_nombre),
-    FOREIGN KEY(id_puesto) REFERENCES puesto(id_puesto)
+    FOREIGN KEY(id_nombre) REFERENCES nombre(id_nombre) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY(id_puesto) REFERENCES puesto(id_puesto) ON DELETE CASCADE ON UPDATE CASCADE
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS email_empleado(
 	id_privado INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     id_empleado INT NOT NULL,
     email VARCHAR(60) NOT NULL,
-    FOREIGN KEY(id_empleado) REFERENCES empleado(id_empleado)
+    FOREIGN KEY(id_empleado) REFERENCES empleado(id_empleado) ON DELETE CASCADE ON UPDATE CASCADE
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS telefono_empleado(
 	id_privado INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     id_empleado INT NOT NULL,
     telefono INT UNSIGNED NOT NULL,
-    FOREIGN KEY(id_empleado) REFERENCES empleado(id_empleado)
+    FOREIGN KEY(id_empleado) REFERENCES empleado(id_empleado) ON DELETE CASCADE ON UPDATE CASCADE
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS empleado_jugador(
@@ -142,6 +145,6 @@ CREATE TABLE IF NOT EXISTS empleado_jugador(
     id_jugador INT NOT NULL,
     tipo_servicio VARCHAR(40) NOT NULL,
     tiempo TIME NOT NULL,
-    FOREIGN KEY(id_empleado) REFERENCES empleado(id_empleado),
-    FOREIGN KEY(id_jugador) REFERENCES jugador(id_jugador)
+    FOREIGN KEY(id_empleado) REFERENCES empleado(id_empleado) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY(id_jugador) REFERENCES jugador(id_jugador) ON DELETE CASCADE ON UPDATE CASCADE
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
