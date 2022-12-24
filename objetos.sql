@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS partido_jugador(
     id_partido INT NOT NULL,
     id_jugador INT NOT NULL,
     titular BIT NOT NULL,
+	calificacion DECIMAL(3,2) NOT NULL,
     id_fin_partido INT NOT NULL,
     id_logros_partido INT,
     FOREIGN KEY(id_partido) REFERENCES partido(id_partido) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -148,121 +149,6 @@ CREATE TABLE IF NOT EXISTS empleado_jugador(
     FOREIGN KEY(id_empleado) REFERENCES empleado(id_empleado) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY(id_jugador) REFERENCES jugador(id_jugador) ON DELETE CASCADE ON UPDATE CASCADE
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- VISTAS
-
--- Top 5 de los jugadores mejor calificados de equipo
-CREATE OR REPLACE VIEW jugadores_mas_calificados AS
-    SELECT nombre_completo_jugador(j.id_jugador), e.calificacion 
-    FROM jugador AS j 
-    JOIN estad_jugador AS e ON j.id_estad_jug = e.id_estad_jug
-	ORDER BY e.calificacion DESC
-    LIMIT 5;
-;
-SELECT *
-FROM estadisticas_neznajko.jugadores_mas_calificados;
-
--- Cantidad de goles y asistencias promedio por jugador por partido
-CREATE OR REPLACE VIEW resultados_x_partido AS
-	SELECT  nombre_completo_jugador(j.id_jugador),e.posicion, TRUNCATE(AVG(l.goles),2) AS goles, TRUNCATE(AVG(l.asistencias),2) AS asistencias
-	FROM jugador AS j
-    JOIN estados AS e ON j.id_estado = e.id_estado
-    JOIN partido_jugador AS p ON j.id_jugador = p.id_jugador
-    JOIN logros_partido AS l ON p.id_logros_partido = l.id_logros_partido
-    GROUP BY j.id_jugador
-    ORDER BY goles DESC, asistencias DESC
-;
-
-SELECT *
-FROM estadisticas_neznajko.resultados_x_partido;
-
--- Cantidad de ejercicios realizados y victorias en un tiempo promedio por cada entrenamiento por jugador
-CREATE OR REPLACE VIEW ejercicios_x_entrenamiento AS
-	SELECT nombre_completo_jugador(j.id_jugador), TRUNCATE(AVG(l.victorias),2) AS victorias, TRUNCATE(AVG(l.realizados),2) AS ejercicios, SEC_TO_TIME(AVG(TIME_TO_SEC(e.realizado))) AS tiempo_promedio
-    FROM jugador AS j
-    JOIN entrenamiento_jugador AS e ON j.id_jugador = e.id_jugador
-    JOIN logros_entrenamiento AS l ON e.id_logros_entrenamiento = l.id_logros_entrenamiento
-    GROUP BY j.id_jugador
-;
-
-SELECT *
-FROM estadisticas_neznajko.ejercicios_x_entrenamiento;
-
--- cantidad de servicios y tiempo dados por cada empleado en orden alfabético
-CREATE OR REPLACE VIEW servicios_x_empleado AS
-	SELECT nombre_completo_empleado(e.id_empleado) AS nombre_completo, COUNT(e_j.id_jugador) AS jugadores, SEC_TO_TIME(SUM(TIME_TO_SEC(e_j.tiempo))) AS tiempo
-    FROM empleado AS e
-    JOIN empleado_jugador AS e_j ON e.id_empleado = e_j.id_empleado
-    GROUP BY e.id_empleado
-    ORDER BY nombre_completo ASC
-;
-
-SELECT * FROM estadisticas_neznajko.servicios_x_empleado;
-
--- Tiempo por cada jugador en cada COPA jugada
-CREATE OR REPLACE VIEW tiempo_x_copa AS
-	SELECT nombre_completo_jugador(j.id_jugador), c.evento, SEC_TO_TIME(SUM(TIME_TO_SEC(f.jugado))) AS tiempo
-    FROM jugador AS j
-    JOIN partido_jugador AS p_j ON j.id_jugador = p_j.id_jugador
-    JOIN fin_partido AS f ON p_j.id_fin_partido = f.id_fin_partido
-    JOIN partido AS p ON p_j.id_partido = p.id_partido 
-    JOIN competencia AS c ON p.id_competencia = c.id_competencia
-    WHERE c.evento LIKE '%copa%'
-    GROUP BY j.id_jugador
-;
-
-SELECT * FROM estadisticas_neznajko.tiempo_x_copa;
-
-
--- STORED PROCEDURE
-
-DELIMITER $$
-
-CREATE PROCEDURE `sp_ordenar_x_enteros` (IN campo VARCHAR(40), IN tipo_orden VARCHAR(5))
-BEGIN
-	IF LENGTH(campo) > 0 THEN
-		-- Creamos parametro de ordenamiento a agregar en la consulta
-		SET @orden_x_entero = CONCAT_WS(' ', 'ORDER BY', campo, tipo_orden);
-	ELSE
-		SET @orden_x_entero = '';
-	END IF;
-    
-	-- Armar clausula con el @orden_x_entero obtenido. En este caso, es el nombre completo de la tabla nombre.
-    SET @clausula = CONCAT_WS(' ', 'SELECT nombre_completo(n.nombre, n.apellido) AS nombre_completo FROM nombre AS n', @orden_x_entero);
-    
-    -- Preparar y ejecutar la query armada
-    PREPARE ejecutar FROM @clausula;
-    EXECUTE ejecutar;
-    DEALLOCATE PREPARE ejecutar;
-    
-END$$
-
--- Ejemplo: 
-call estadisticas_neznajko.sp_ordenar_x_enteros('nombre', 'desc');
-
-
-CREATE PROCEDURE `sp_eliminar_o_agregar_email` (IN id_emp INT, IN mail VARCHAR(60))  -- Elimina email encontrado, pero, si no existe actualmente con esos datos, agrega el mismo mencionad0, si es válida
-BEGIN
-	DECLARE email_nulo VARCHAR(60);
-	SET email_nulo = (SELECT email FROM email_empleado WHERE id_empleado = id_emp AND email = mail); 
-	IF email_nulo != '' THEN
-        DELETE FROM email_empleado WHERE id_empleado = id_emp AND email = mail;
-	ELSE
-		IF mail LIKE '%@%' THEN  -- Será valido, siempre y cuando, tenga arroba en alguna parte intermedia
-			INSERT INTO email_empleado VALUES(
-				NULL, id_emp, mail);
-		END IF;
-    END IF;
-    
-    SELECT * FROM email_empleado;
-    
-    -- Ejecutamos clausula para corroborar resultados
-END$$
-DELIMITER ;
-
--- Ejemplo: 
-call estadisticas_neznajko.sp_eliminar_o_agregar_email(4, 'nuevoMail@anuloMufa');
 
 
 -- FUNCIONES
@@ -377,13 +263,15 @@ BEGIN
 
 END$$
 
+
 DELIMITER ;
 
 
 -- TRIGGERS
 
 CREATE TABLE nuevos_partido_jugador(
-	id_privado INT PRIMARY KEY,
+	id_privado INT PRIMARY KEY AUTO_INCREMENT,
+    id_nuevo INT,
     nombre_jugador VARCHAR(80),
     fecha_partido DATE,
     fecha_actual DATE,
@@ -397,20 +285,17 @@ CREATE TRIGGER `tr_nuevo_partido_jugador`
 BEFORE INSERT ON `partido_jugador`
 FOR EACH ROW
 INSERT INTO `nuevos_partido_jugador`
-VALUES (NEW.id_privado, nombre_completo_jugador(NEW.id_jugador),
+VALUES (NULL, NEW.id_privado, nombre_completo_jugador(NEW.id_jugador),
 fecha_partido(NEW.id_partido), CURRENT_DATE(),CURRENT_TIME());
 
-INSERT INTO partido_jugador VALUES
-	(129,1,5,0,5,6),
-    (204,1,2,1,4,2);
-
-SELECT * FROM nuevos_partido_jugador;
 
 CREATE TABLE `partido_jugador_descartados`(
 	id_privado INT PRIMARY KEY AUTO_INCREMENT,
     nombre_usuario VARCHAR(80),
     hora_actual TIME,
-    fecha_actual DATE
+    fecha_actual DATE,
+    partido_anterior INT,
+    jugador_anterior VARCHAR(80)
 );
 
 -- Obtener el nombre del usuario y la fecha actual de los registros eliminados de la tabla partido_jugador para encontrarlo por fecha y hora actual
@@ -418,12 +303,7 @@ CREATE TRIGGER `tr_descarte_partido_jugador`
 AFTER DELETE ON `partido_jugador`
 FOR EACH ROW
 INSERT INTO `partido_jugador_descartados` VALUES
-	(NULL, SYSTEM_USER(), CURRENT_TIME(), CURRENT_DATE());
-
-DELETE FROM partido_jugador
-	WHERE id_privado = 204;
-
-SELECT * FROM partido_jugador_descartados;
+	(OLD.id_privado, SYSTEM_USER(), CURRENT_TIME(), CURRENT_DATE(), OLD.id_partido, nombre_completo_jugador(OLD.id_jugador));
 
 CREATE TABLE nuevos_empleados_jugador(
 	id_privado INT PRIMARY KEY AUTO_INCREMENT,
@@ -434,7 +314,7 @@ CREATE TABLE nuevos_empleados_jugador(
     hora_actual TIME
 );
 
-DROP TRIGGER `tr_nuevo_empleado_jugador`;
+DROP TRIGGER IF EXISTS `tr_nuevo_empleado_jugador`;
 -- Registra los datos que fueron agregados en empleado_jugador en fecha y hora de su realizacion
 CREATE TRIGGER `tr_nuevo_empleado_jugador`
 BEFORE INSERT ON `empleado_jugador`
@@ -442,15 +322,15 @@ FOR EACH ROW
 INSERT INTO `nuevos_empleados_jugador` VALUES
 (NEW.id_privado, nombre_completo_empleado(NEW.id_empleado), nombre_completo_jugador(NEW.id_jugador), CURRENT_USER(), CURRENT_DATE, CURRENT_TIME());
 
-INSERT INTO empleado_jugador VALUES
-	(129,1,5,'Prueba','00:01');
-
-SELECT * FROM nuevos_empleados_jugador;
 
 CREATE TABLE cambios_empleado_jugador(
 	id_privado INT PRIMARY KEY AUTO_INCREMENT,
     nombre_usuario VARCHAR(60),
-    fecha_hora_actual TIMESTAMP
+    fecha_hora_actual TIMESTAMP,
+    tipo_servicio_anterior VARCHAR(40),
+    tiempo_anterior TIME,
+    empleado_anterior VARCHAR(80),
+    jugador_anterior VARCHAR(80)
 );
 
 -- Registra el momento y el auto del cambio en los registros de la tabla empleado_jugador
@@ -459,13 +339,130 @@ CREATE TRIGGER `tr_cambio_empleado_jugador`
 AFTER UPDATE ON `empleado_jugador`
 FOR EACH ROW
 INSERT INTO `cambios_empleado_jugador` VALUES
-(NULL, CURRENT_USER(),CURRENT_TIMESTAMP());
+(OLD.id_privado, CURRENT_USER(),CURRENT_TIMESTAMP(), OLD.tipo_servicio, OLD.tiempo, nombre_completo_empleado(OLD.id_empleado), nombre_completo_jugador(OLD.id_jugador));
 
-UPDATE empleado_jugador
-	SET tipo_servicio = 'Serviciazo de prueba'
-    WHERE id_privado = 2;
 
-SELECT * FROM cambios_empleado_jugador;
+-- STORED PROCEDURE
+
+DELIMITER $$
+
+CREATE PROCEDURE `sp_ordenar_x_enteros` (IN campo VARCHAR(40), IN tipo_orden VARCHAR(5))
+BEGIN
+	IF LENGTH(campo) > 0 THEN
+		-- Creamos parametro de ordenamiento a agregar en la consulta
+		SET @orden_x_entero = CONCAT_WS(' ', 'ORDER BY', campo, tipo_orden);
+	ELSE
+		SET @orden_x_entero = '';
+	END IF;
+    
+	-- Armar clausula con el @orden_x_entero obtenido. En este caso, es el nombre completo de la tabla nombre.
+    SET @clausula = CONCAT_WS(' ', 'SELECT nombre_completo(n.nombre, n.apellido) AS nombre_completo FROM nombre AS n', @orden_x_entero);
+    
+    -- Preparar y ejecutar la query armada
+    PREPARE ejecutar FROM @clausula;
+    EXECUTE ejecutar;
+    DEALLOCATE PREPARE ejecutar;
+    
+END$$
+
+CREATE PROCEDURE `sp_eliminar_o_agregar_email` (IN id_emp INT, IN mail VARCHAR(60))  -- Elimina email encontrado, pero, si no existe actualmente con esos datos, agrega el mismo mencionad0, si es válida
+BEGIN
+	DECLARE email_nulo VARCHAR(60);
+	SET email_nulo = (SELECT email FROM email_empleado WHERE id_empleado = id_emp AND email = mail); 
+	IF email_nulo != '' THEN
+        DELETE FROM email_empleado WHERE id_empleado = id_emp AND email = mail;
+	ELSE
+		IF mail LIKE '%@%' THEN  -- Será valido, siempre y cuando, tenga arroba en alguna parte intermedia
+			INSERT INTO email_empleado VALUES(
+				NULL, id_emp, mail);
+		END IF;
+    END IF;
+    
+    SELECT * FROM email_empleado;
+    
+    -- Ejecutamos clausula para corroborar resultados
+END$$
+
+DELIMITER $$
+
+CREATE PROCEDURE `sp_actualizar_clasificacion_x_jugador` (IN id_jug INT)  -- Actualiza la clasificacion del jugador indicado por parametro. Se toma en consideracion su calificacion promedio en partidos y entrenamientos
+BEGIN
+	DECLARE calificacion_anterior DECIMAL(3,2);
+    DECLARE calificacion_partido DECIMAL(3,2);
+    DECLARE calificacion_entrenamiento DECIMAL(3,2);
+    DECLARE calificacion_actual DECIMAL(3,2);
+    DECLARE id_estad INT; 
+    
+	SET calificacion_anterior = (SELECT e.calificacion FROM jugador AS j
+		JOIN estad_jugador AS e ON j.id_estad_jug = e.id_estad_jug WHERE j.id_jugador = id_jug); 
+    SET calificacion_partido = (SELECT AVG(calificacion) FROM partido_jugador WHERE id_jugador = id_jug LIMIT 1);
+    SET calificacion_entrenamiento = (SELECT AVG(calificacion) FROM entrenamiento_jugador WHERE id_jugador = id_jug LIMIT 1);
+    SET calificacion_actual = (calificacion_partido + calificacion_entrenamiento)/2;
+    SET id_estad = (SELECT id_estad_jug FROM jugador WHERE id_jugador = id_jug LIMIT 1);
+    
+	IF calificacion_anterior != calificacion_actual AND LENGTH(calificacion_actual) > 0 THEN
+		UPDATE estad_jugador
+			SET calificacion = calificacion_actual
+			WHERE id_estad_jug = id_estad; 
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- VISTAS
+
+-- Top 5 de los jugadores mejor calificados de equipo
+CREATE OR REPLACE VIEW jugadores_mas_calificados AS
+    SELECT nombre_completo_jugador(j.id_jugador) AS nombre_jugador, e.calificacion AS calificacion
+    FROM jugador AS j 
+    JOIN estad_jugador AS e ON j.id_estad_jug = e.id_estad_jug
+	ORDER BY calificacion DESC
+    LIMIT 5;
+;
+
+-- Cantidad de goles y asistencias promedio por jugador por partido
+CREATE OR REPLACE VIEW resultados_x_partido AS
+	SELECT nombre_completo_jugador(j.id_jugador) AS nombre_jugador, e.posicion AS posicion, TRUNCATE((AVG(l.goles)),2) AS goles, TRUNCATE((AVG(l.asistencias)),2) AS asistencias
+	FROM jugador AS j
+    JOIN estados AS e ON j.id_estado = e.id_estado
+    JOIN partido_jugador AS p ON j.id_jugador = p.id_jugador
+    JOIN logros_partido AS l ON p.id_logros_partido = l.id_logros_partido
+    GROUP BY j.id_jugador
+    ORDER BY nombre_jugador
+;
+
+
+-- Cantidad de ejercicios realizados y victorias en un tiempo promedio por cada entrenamiento por jugador
+CREATE OR REPLACE VIEW ejercicios_x_entrenamiento AS
+	SELECT nombre_completo_jugador(j.id_jugador) AS nombre_jugador, TRUNCATE((AVG(l.victorias)),2) AS victorias, TRUNCATE((AVG(l.realizados)),2) AS ejercicios, SEC_TO_TIME(AVG(TIME_TO_SEC(e.realizado))) AS tiempo_promedio
+    FROM jugador AS j
+    JOIN entrenamiento_jugador AS e ON j.id_jugador = e.id_jugador
+    JOIN logros_entrenamiento AS l ON e.id_logros_entrenamiento = l.id_logros_entrenamiento
+    GROUP BY j.id_jugador
+    ORDER BY nombre_jugador
+;
+
+-- cantidad de servicios y tiempo dados por cada empleado en orden alfabético
+CREATE OR REPLACE VIEW servicios_x_empleado AS
+	SELECT nombre_completo_empleado(e.id_empleado) AS nombre_completo, COUNT(e_j.id_jugador) AS jugadores, SEC_TO_TIME(SUM(TIME_TO_SEC(e_j.tiempo))) AS tiempo
+    FROM empleado AS e
+    JOIN empleado_jugador AS e_j ON e.id_empleado = e_j.id_empleado
+    GROUP BY e.id_empleado
+    ORDER BY nombre_completo ASC
+;
+
+-- Tiempo por cada jugador en cada COPA jugada
+CREATE OR REPLACE VIEW tiempo_x_copa AS
+	SELECT nombre_completo_jugador(j.id_jugador) AS nombre_completo, c.evento AS copa, SEC_TO_TIME(SUM(TIME_TO_SEC(f.jugado))) AS tiempo
+    FROM jugador AS j
+    JOIN partido_jugador AS p_j ON j.id_jugador = p_j.id_jugador
+    JOIN fin_partido AS f ON p_j.id_fin_partido = f.id_fin_partido
+    JOIN partido AS p ON p_j.id_partido = p.id_partido 
+    JOIN competencia AS c ON p.id_competencia = c.id_competencia
+    WHERE c.evento LIKE '%copa%'
+    GROUP BY j.id_jugador
+;
+
 
 
 
